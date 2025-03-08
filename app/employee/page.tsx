@@ -1,5 +1,4 @@
 import { EmployeeLogin } from "@/components/employee-login"
-import styled from 'styled-components'
 
 export const metadata = {
   title: "Employee Portal | Eeko",
