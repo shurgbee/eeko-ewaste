@@ -1,10 +1,8 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { Bot, Send, User } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -33,35 +31,22 @@ export function ChatWithAI() {
     setInput("")
     setIsLoading(true)
 
-    // In a real app, this would call an AI API
-    // For now, we'll simulate a response
-    setTimeout(() => {
-      let response = ""
-
-      if (input.toLowerCase().includes("help")) {
-        response =
-          "I can help you fill out the form. Just tell me what type of e-waste you have, and I'll guide you through the process."
-      } else if (input.toLowerCase().includes("category") || input.toLowerCase().includes("type")) {
-        response =
-          "E-waste is categorized into: Large household appliances, Small household appliances, IT equipment, Consumer electronics, Lamps and luminaires, Toys, Tools, Medical devices, Monitoring and control instruments, and Automatic dispensers. Which category does your item fall into?"
-      } else if (input.toLowerCase().includes("tv") || input.toLowerCase().includes("television")) {
-        response =
-          "A TV would fall under 'Consumer electronics'. You can select this category in the form and specify it's a television in the description field."
-      } else if (input.toLowerCase().includes("computer") || input.toLowerCase().includes("laptop")) {
-        response =
-          "Computers and laptops fall under 'IT equipment'. You can select this category and specify the type in the description."
-      } else if (input.toLowerCase().includes("pickup") || input.toLowerCase().includes("collection")) {
-        response =
-          "You can select your preferred pickup date in the form. We typically offer pickups on weekdays. Once you submit the form, our team will confirm the exact time with you."
-      } else {
-        response =
-          "I understand you have e-waste to recycle. Could you tell me more about what specific items you have? This will help me guide you through the submission process."
-      }
-
-      const assistantMessage: Message = { role: "assistant", content: response }
+    try {
+      const response = await fetch('/api/aichat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: input }),
+      })
+      const data = await response.json()
+      const assistantMessage: Message = data.response
       setMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Error fetching AI response:', error)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
