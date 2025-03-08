@@ -112,11 +112,12 @@ export function EmployeeDashboard() {
                   <TableRow>
                     <TableHead className="w-[50px]">Select</TableHead>
                     <TableHead>Customer</TableHead>
+                    <TableHead>Phone No.</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Items</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -131,7 +132,9 @@ export function EmployeeDashboard() {
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">{pickup.name}</div>
+                        <div className="font-medium">{pickup.name}</div> 
+                      </TableCell>
+                      <TableCell>
                         <div className="text-sm text-muted-foreground">{pickup.phone}</div>
                       </TableCell>
                       <TableCell>

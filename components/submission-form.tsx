@@ -305,7 +305,7 @@ export function Submission() {
                                     : ""
                                 }`}
                               >
-                                {format(date, "EEE, MMM d")}
+                                {format(date, "M/d/yy")}
                               </Button>
                             ))}
                           </div>
