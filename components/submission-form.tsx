@@ -50,8 +50,8 @@ const formSchema = z.object({
   items: z
     .array(
       z.object({
-        category: z.string({
-          required_error: "Please select a category.",
+        category: z.string().min(1,{
+          message: "Please select a category.",
         }),
         quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
         description: z.string().optional(),
@@ -84,13 +84,21 @@ export function Submission() {
 
   function onSubmit(data: FormValues) {
     // In a real app, this would send the data to the server
-    console.log(data)
+    console.log(data.items[0].category)
 
-    // Show success message
-    toast({
-      title: "Submission successful!",
-      description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
-    })
+    if (data.items[0].category == "") {
+      toast({
+        title: "Submission unsuccessful",
+        description: "Please include a valid e-waste item"
+      })
+    } else {
+      // Show success message
+      toast({
+        title: "Submission successful!",
+        description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
+      })
+    }
+      
   }
 
   const addItem = () => {
