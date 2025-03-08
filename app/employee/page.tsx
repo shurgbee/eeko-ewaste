@@ -10,7 +10,7 @@ export const metadata = {
 export default function EmployeePage() {
   return (
     <div className="container py-10 flex justify-center">
-      <div className="max-w-xxl mx-4">
+      <div className="w-full mx-4">
         <h1 className="text-3xl font-bold mb-6 text-center">Employee Portal</h1>
         <EmployeeLogin />
       </div>

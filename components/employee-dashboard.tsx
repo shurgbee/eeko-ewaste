@@ -176,7 +176,7 @@ export function EmployeeDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="completed">
+        <TabsContent value="completed" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Completed Pickups</CardTitle>
