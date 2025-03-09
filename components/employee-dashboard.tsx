@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { Calendar, MapPin, Package, Truck, User } from "lucide-react"
+import { Calendar, Copy, MapPin, Package, Truck, User } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { Skeleton } from "./ui/skeleton"
 
 type Item = {
   id: number
@@ -48,7 +49,7 @@ export function EmployeeDashboard() {
   const [selectedPickups, setSelectedPickups] = useState<number[]>([])
   const [showRouteDialog, setShowRouteDialog] = useState(false)
   const [routeLoading, setRouteLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [routeLink, setRouteLink] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubmissions()
@@ -83,29 +84,11 @@ export function EmployeeDashboard() {
     }
   }
 
-  useEffect(() => {
-    // Progress bar simulation for long requests
-    let interval: any;
-    if (routeLoading) {
-      interval = setInterval(() => {
-        setLoadingProgress(prev => {
-          const newProgress = prev + 5;
-          // Cap at 90% until actual response comes back
-          return newProgress > 90 ? 90 : newProgress;
-        });
-      }, 1000); // Update every second
-    } else {
-      setLoadingProgress(0);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [routeLoading]);
 
   async function onList(addresses: string[]) {
     try {
       setRouteLoading(true);
+      setRouteLink(null); // Reset any previous link
       
       // Send addresses to API endpoint with longer timeout
       const response = await fetch('/api/mapslist', {
@@ -116,7 +99,6 @@ export function EmployeeDashboard() {
         body: JSON.stringify(addresses),
       });
 
-      setLoadingProgress(95);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -124,16 +106,18 @@ export function EmployeeDashboard() {
       }
       
       const data = await response.json();
-      setLoadingProgress(100);
+      
+      // Store the route link
+      setRouteLink(data.Link);
       
       // Show success message
       toast({
         title: "Route generated",
-        description: `Route has been copied to your clipboard`,
+        description: `Route has been generated successfully`,
       });
       
-      window.open(data.Link, "_blank")
-      navigator.clipboard.writeText(data.Link)
+      window.open(data.Link, "_blank");
+      navigator.clipboard.writeText(data.Link);
     } catch (error) {
       console.error('Error generating route:', error);
       toast({
@@ -145,6 +129,16 @@ export function EmployeeDashboard() {
       setRouteLoading(false);
     }
   }
+  
+  const handleCopyLink = () => {
+    if (routeLink) {
+      navigator.clipboard.writeText(routeLink);
+      toast({
+        title: "Copied to clipboard",
+        description: "Route link has been copied to clipboard",
+      });
+    }
+  };
 
   const handleViewDetails = (pickup: Submission) => {
     setSelectedPickup(pickup)
@@ -457,8 +451,9 @@ export function EmployeeDashboard() {
       {/* Route Dialog */}
       <Dialog open={showRouteDialog} onOpenChange={(open) => {
         if (!open) {
-          // Reset loading state when dialog closes
+          // Reset states when dialog closes
           setRouteLoading(false);
+          setRouteLink(null);
         }
         setShowRouteDialog(open);
       }}>
@@ -474,13 +469,32 @@ export function EmployeeDashboard() {
                   <span className="text-sm text-muted-foreground">Generating route...</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <Skeleton className="w-full rounded-full h-2.5"></Skeleton>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Please be patient. This may take up to 20-30 seconds. Please be patient.
+                  Please be patient. This may take up to 20-30 seconds.
                 </p>
               </div>
             )}
-              
+            
+            {routeLink && !routeLoading && (
+              <div className="border rounded-md p-4 bg-green-50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-green-800">Route generated successfully!</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-1"
+                  >
+                    <Copy className="h-3 w-3" /> 
+                    Copy Link
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground break-all">{routeLink}</p>
+              </div>
+            )}
+                
             <div className="border rounded-md p-4 bg-muted/50">
               <p className="text-sm text-center">
                 Later on, we'll use the Google Maps API to create an Embed that displays the directions url, but there was no time :(
@@ -523,7 +537,7 @@ export function EmployeeDashboard() {
                 onList(selectedAddresses);
               }}
             >
-              {routeLoading ? "Processing..." : "Start Navigation"}
+              {routeLoading ? "Processing..." : routeLink ? "Regenerate Route" : "Start Navigation"}
             </Button>
           </DialogFooter>
         </DialogContent>
