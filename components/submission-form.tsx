@@ -50,8 +50,8 @@ const formSchema = z.object({
   items: z
     .array(
       z.object({
-        category: z.string({
-          required_error: "Please select a category.",
+        category: z.string().min(1,{
+          message: "Please select a category.",
         }),
         quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
         description: z.string().optional(),
@@ -82,16 +82,48 @@ export function Submission() {
     },
   })
 
-  function onSubmit(data: FormValues) {
-    // In a real app, this would send the data to the server
-    console.log(data)
+  async function onSubmit(data: FormValues) {
+    if (data.items[0].category == "") {
+      toast({
+        title: "Submission unsuccessful",
+        description: "Please include a valid e-waste item"
+      })
+      return
+    }
 
-    // Show success message
-    toast({
-      title: "Submission successful!",
-      description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
-    })
-  }
+
+    try {
+      // Send data to API endpoint
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit form')
+      }
+
+      // Show success message
+      toast({
+        title: "Submission successful!",
+        description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
+      })
+      
+      // Optional: Reset form after successful submission
+      // form.reset()
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      toast({
+        title: "Submission failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }   
+}
 
   const addItem = () => {
     const currentItems = form.getValues("items") || []

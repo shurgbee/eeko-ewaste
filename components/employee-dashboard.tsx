@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { Calendar, MapPin, Package, Truck, User } from "lucide-react"
+import { Calendar, Copy, MapPin, Package, Truck, User } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -17,54 +17,66 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import { Skeleton } from "./ui/skeleton"
 
-// Mock data for demonstration
-const pickups = [
-  {
-    id: "1",
-    name: "John Doe",
-    address: "123 Main St, Anytown, CA 12345",
-    email: "john@example.com",
-    phone: "(123) 456-7890",
-    date: new Date(2025, 2, 10), // March 10, 2025
-    status: "pending",
-    items: [
-      { category: "IT equipment", quantity: 2, description: "Old laptops" },
-      { category: "Consumer electronics", quantity: 1, description: "32-inch TV" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    address: "456 Oak Ave, Somewhere, CA 54321",
-    email: "jane@example.com",
-    phone: "(987) 654-3210",
-    date: new Date(2025, 2, 11), // March 11, 2025
-    status: "pending",
-    items: [{ category: "Large household appliances", quantity: 1, description: "Refrigerator" }],
-  },
-  {
-    id: "3",
-    name: "Bob Johnson",
-    address: "789 Pine St, Nowhere, CA 67890",
-    email: "bob@example.com",
-    phone: "(555) 123-4567",
-    date: new Date(2025, 2, 12), // March 12, 2025
-    status: "pending",
-    items: [
-      { category: "Small household appliances", quantity: 3, description: "Microwave, toaster, blender" },
-      { category: "Toys", quantity: 5, description: "Electronic toys" },
-    ],
-  },
-]
+type Item = {
+  id: number
+  category: string
+  quantity: number
+  description: string | null
+  submissionId: number
+}
+
+type Submission = {
+  id: number
+  name: string
+  email: string
+  phone: string
+  address: string
+  pickupDate: string // Will convert to Date when using
+  status: string
+  createdAt: string
+  items: Item[]
+}
 
 export function EmployeeDashboard() {
-  const [selectedPickup, setSelectedPickup] = useState<(typeof pickups)[0] | null>(null)
+  const { toast } = useToast()
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPickup, setSelectedPickup] = useState<Submission | null>(null)
   const [showDetails, setShowDetails] = useState(false)
-  const [selectedPickups, setSelectedPickups] = useState<string[]>([])
+  const [selectedPickups, setSelectedPickups] = useState<number[]>([])
   const [showRouteDialog, setShowRouteDialog] = useState(false)
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeLink, setRouteLink] = useState<string | null>(null);
 
-  const handleSelectPickup = (id: string) => {
+  useEffect(() => {
+    fetchSubmissions()
+  }, [])
+
+  const fetchSubmissions = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/submissions/get')
+      if (!response.ok) {
+        throw new Error('Failed to fetch submissions')
+      }
+      const data = await response.json()
+      setSubmissions(data.submissions)
+    } catch (error) {
+      console.error('Error fetching submissions:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load submissions data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSelectPickup = (id: number) => {
     if (selectedPickups.includes(id)) {
       setSelectedPickups(selectedPickups.filter((pickupId) => pickupId !== id))
     } else {
@@ -72,15 +84,110 @@ export function EmployeeDashboard() {
     }
   }
 
-  const handleViewDetails = (pickup: (typeof pickups)[0]) => {
+
+  async function onList(addresses: string[]) {
+    try {
+      setRouteLoading(true);
+      setRouteLink(null); // Reset any previous link
+      
+      // Send addresses to API endpoint with longer timeout
+      const response = await fetch('/api/mapslist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addresses),
+      });
+
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate route');
+      }
+      
+      const data = await response.json();
+      
+      // Store the route link
+      setRouteLink(data.Link);
+      
+      // Show success message
+      toast({
+        title: "Route generated",
+        description: `Route has been generated successfully`,
+      });
+      
+      window.open(data.Link, "_blank");
+      navigator.clipboard.writeText(data.Link);
+    } catch (error) {
+      console.error('Error generating route:', error);
+      toast({
+        title: "Route generation failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setRouteLoading(false);
+    }
+  }
+  
+  const handleCopyLink = () => {
+    if (routeLink) {
+      navigator.clipboard.writeText(routeLink);
+      toast({
+        title: "Copied to clipboard",
+        description: "Route link has been copied to clipboard",
+      });
+    }
+  };
+
+  const handleViewDetails = (pickup: Submission) => {
     setSelectedPickup(pickup)
     setShowDetails(true)
   }
 
   const handleCreateRoute = () => {
-    // In a real app, this would create a route with Google Maps
     setShowRouteDialog(true)
   }
+
+  const handleMarkAsCompleted = async () => {
+    if (!selectedPickup) return
+
+    try {
+      const response = await fetch('/api/submissions/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: selectedPickup.id,
+          status: 'completed',
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update submission status')
+      }
+
+      toast({
+        title: "Success",
+        description: "Pickup marked as completed",
+      })
+      
+      // Refresh submissions and close dialog
+      setShowDetails(false)
+      fetchSubmissions()
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update pickup status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const pendingSubmissions = submissions.filter(s => s.status === 'pending')
+  const completedSubmissions = submissions.filter(s => s.status === 'completed')
 
   return (
     <div className="space-y-6">
@@ -107,87 +214,156 @@ export function EmployeeDashboard() {
               <CardDescription>Select pickups to create a route for collection</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">Select</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Phone No.</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pickups.map((pickup) => (
-                    <TableRow key={pickup.id}>
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          checked={selectedPickups.includes(pickup.id)}
-                          onChange={() => handleSelectPickup(pickup.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{pickup.name}</div> 
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground">{pickup.phone}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <span className="truncate max-w-[200px]">{pickup.address}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                          {format(pickup.date, "MMM d, yyyy")}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {pickup.items.reduce((acc, item) => acc + item.quantity, 0)} items
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={pickup.status === "pending" ? "outline" : "default"}
-                          className={
-                            pickup.status === "pending" ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" : ""
-                          }
-                        >
-                          {pickup.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(pickup)}>
-                          View Details
-                        </Button>
-                      </TableCell>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="flex space-x-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse delay-150"></div>
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse delay-300"></div>
+                  </div>
+                </div>
+              ) : pendingSubmissions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Package className="h-10 w-10 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">No pending pickups</h3>
+                  <p className="text-muted-foreground">New pickup submissions will appear here</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">Select</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Phone No.</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingSubmissions.map((submission) => (
+                      <TableRow key={submission.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedPickups.includes(submission.id)}
+                            onChange={() => handleSelectPickup(submission.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{submission.name}</div> 
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">{submission.phone}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span className="truncate max-w-[200px]">{submission.address}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {format(new Date(submission.pickupDate), "MMM d, yyyy")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {submission.items.reduce((acc, item) => acc + item.quantity, 0)} items
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={submission.status === "pending" ? "outline" : "default"}
+                            className={
+                              submission.status === "pending" ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" : ""
+                            }
+                          >
+                            {submission.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(submission)}>
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="completed">
+        <TabsContent value="completed" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Completed Pickups</CardTitle>
               <CardDescription>View history of completed pickups</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Package className="h-10 w-10 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">No completed pickups yet</h3>
-                <p className="text-muted-foreground">Completed pickups will appear here</p>
-              </div>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="flex space-x-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse delay-150"></div>
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse delay-300"></div>
+                  </div>
+                </div>
+              ) : completedSubmissions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Package className="h-10 w-10 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">No completed pickups yet</h3>
+                  <p className="text-muted-foreground">Completed pickups will appear here</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {completedSubmissions.map((submission) => (
+                      <TableRow key={submission.id}>
+                        <TableCell>
+                          <div className="font-medium">{submission.name}</div> 
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span className="truncate max-w-[200px]">{submission.address}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                            {format(new Date(submission.pickupDate), "MMM d, yyyy")}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {submission.items.reduce((acc, item) => acc + item.quantity, 0)} items
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(submission)}>
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -228,7 +404,7 @@ export function EmployeeDashboard() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Pickup Date</h3>
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{format(selectedPickup.date, "EEEE, MMMM d, yyyy")}</span>
+                    <span>{format(new Date(selectedPickup.pickupDate), "EEEE, MMMM d, yyyy")}</span>
                   </div>
                 </div>
               </div>
@@ -248,7 +424,7 @@ export function EmployeeDashboard() {
                       <TableRow key={index}>
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.description || ''}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -260,22 +436,68 @@ export function EmployeeDashboard() {
             <Button variant="outline" onClick={() => setShowDetails(false)}>
               Close
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700">Mark as Completed</Button>
+            {selectedPickup && selectedPickup.status === 'pending' && (
+              <Button 
+                className="bg-green-600 hover:bg-green-700" 
+                onClick={handleMarkAsCompleted}
+              >
+                Mark as Completed
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Route Dialog */}
-      <Dialog open={showRouteDialog} onOpenChange={setShowRouteDialog}>
+      <Dialog open={showRouteDialog} onOpenChange={(open) => {
+        if (!open) {
+          // Reset states when dialog closes
+          setRouteLoading(false);
+          setRouteLink(null);
+        }
+        setShowRouteDialog(open);
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Pickup Route</DialogTitle>
             <DialogDescription>Your optimized route for selected pickups</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {routeLoading && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Generating route...</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <Skeleton className="w-full rounded-full h-2.5"></Skeleton>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Please be patient. This may take up to 20-30 seconds.
+                </p>
+              </div>
+            )}
+            
+            {routeLink && !routeLoading && (
+              <div className="border rounded-md p-4 bg-green-50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-green-800">Route generated successfully!</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-1"
+                  >
+                    <Copy className="h-3 w-3" /> 
+                    Copy Link
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground break-all">{routeLink}</p>
+              </div>
+            )}
+                
             <div className="border rounded-md p-4 bg-muted/50">
               <p className="text-sm text-center">
-                In a real application, this would display a Google Maps route with all selected pickup locations.
+                Later on, we'll use the Google Maps API to create an Embed that displays the directions url, but there was no time :(
               </p>
               <div className="aspect-video bg-muted rounded-md mt-4 flex items-center justify-center">
                 <MapPin className="h-10 w-10 text-muted-foreground" />
@@ -285,16 +507,16 @@ export function EmployeeDashboard() {
             <div>
               <h3 className="text-sm font-medium mb-2">Pickup Locations</h3>
               <div className="space-y-2">
-                {pickups
-                  .filter((pickup) => selectedPickups.includes(pickup.id))
-                  .map((pickup, index) => (
-                    <div key={pickup.id} className="flex items-center p-2 border rounded-md">
+                {submissions
+                  .filter((submission) => selectedPickups.includes(submission.id))
+                  .map((submission, index) => (
+                    <div key={submission.id} className="flex items-center p-2 border rounded-md">
                       <div className="h-6 w-6 rounded-full bg-green-100 text-green-800 flex items-center justify-center mr-3 text-sm font-medium">
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium">{pickup.name}</p>
-                        <p className="text-sm text-muted-foreground">{pickup.address}</p>
+                        <p className="font-medium">{submission.name}</p>
+                        <p className="text-sm text-muted-foreground">{submission.address}</p>
                       </div>
                     </div>
                   ))}
@@ -302,10 +524,21 @@ export function EmployeeDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRouteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowRouteDialog(false)} disabled={routeLoading}>
               Close
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700">Start Navigation</Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700" 
+              disabled={routeLoading}
+              onClick={() => {
+                const selectedAddresses = submissions
+                  .filter(submission => selectedPickups.includes(submission.id))
+                  .map(submission => submission.address);
+                onList(selectedAddresses);
+              }}
+            >
+              {routeLoading ? "Processing..." : routeLink ? "Regenerate Route" : "Start Navigation"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
