@@ -82,24 +82,48 @@ export function Submission() {
     },
   })
 
-  function onSubmit(data: FormValues) {
-    // In a real app, this would send the data to the server
-    console.log(data.items[0].category)
-
+  async function onSubmit(data: FormValues) {
     if (data.items[0].category == "") {
       toast({
         title: "Submission unsuccessful",
         description: "Please include a valid e-waste item"
       })
-    } else {
+      return
+    }
+
+
+    try {
+      // Send data to API endpoint
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit form')
+      }
+
       // Show success message
       toast({
         title: "Submission successful!",
         description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
       })
-    }
       
-  }
+      // Optional: Reset form after successful submission
+      // form.reset()
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      toast({
+        title: "Submission failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }   
+}
 
   const addItem = () => {
     const currentItems = form.getValues("items") || []
