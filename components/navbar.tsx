@@ -7,6 +7,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import Image from "next/image"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -21,7 +22,13 @@ export function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Recycle className="h-6 w-6 text-green-600" />
+            <Image
+              src="/Logo.svg"
+              height={32}
+              width={32} // Replace with your actual image path or use an external image
+              alt="Our logo"
+              objectFit="cover"
+            />
             <span className="text-xl font-bold">Eeko</span>
           </Link>
         </div>

@@ -1,0 +1,65 @@
+.topLanding {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    justify-content: center;
+}
+
+.topLandingWrapper {
+    background-image: url("../public/images/topLanding.svg");
+    background-size: 100% 170%;
+    background-position-y: center;
+    grid-area: 1 / 1 / 3 / 5;
+}
+
+.container {
+    grid-area: 1 / 1 / 3 / 5;
+}
+
+li::marker {
+    color: #bdd59a;
+}
+
+.bottomLanding {
+    background-image: url("../public/images/bottomLanding.svg");
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.recycleWrapper {
+    background-color: #569a53;
+    padding: 2rem;
+    border: 1rem solid #569a53;
+    border-radius: 100px;
+    transition: all .3s;
+}
+
+.linkWrapper {
+    width: 65%;
+    transition: all .7s;
+    font-size: 50rem;
+}
+
+/* .leaf1 {
+    background-image: url("../public/images/leaf1.svg");
+    grid-area: 1 / 1 / 2 / 2;
+    z-index: 0;
+    background-size: contain;
+    background-repeat: no-repeat;
+    max-height: 10rem;
+}
+
+.leaf2 {
+    background-image: url('../public/images/leaf2.svg');
+    width: 10rem;
+    height: 10rem;
+    background-size: contain;
+    background-repeat: no-repeat;
+    grid-area: 2 / 1 / 3 / 2;
+    background-position-x: 100%;
+}
+
+.wasteExplanation {
+    z-index: 2;
+    position:relative;
+} */
