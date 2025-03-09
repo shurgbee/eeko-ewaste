@@ -47,6 +47,8 @@ export function EmployeeDashboard() {
   const [showDetails, setShowDetails] = useState(false)
   const [selectedPickups, setSelectedPickups] = useState<number[]>([])
   const [showRouteDialog, setShowRouteDialog] = useState(false)
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
     fetchSubmissions()
@@ -78,6 +80,69 @@ export function EmployeeDashboard() {
       setSelectedPickups(selectedPickups.filter((pickupId) => pickupId !== id))
     } else {
       setSelectedPickups([...selectedPickups, id])
+    }
+  }
+
+  useEffect(() => {
+    // Progress bar simulation for long requests
+    let interval: any;
+    if (routeLoading) {
+      interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          const newProgress = prev + 5;
+          // Cap at 90% until actual response comes back
+          return newProgress > 90 ? 90 : newProgress;
+        });
+      }, 1000); // Update every second
+    } else {
+      setLoadingProgress(0);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [routeLoading]);
+
+  async function onList(addresses: string[]) {
+    try {
+      setRouteLoading(true);
+      
+      // Send addresses to API endpoint with longer timeout
+      const response = await fetch('/api/mapslist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addresses),
+      });
+
+      setLoadingProgress(95);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate route');
+      }
+      
+      const data = await response.json();
+      setLoadingProgress(100);
+      
+      // Show success message
+      toast({
+        title: "Route generated",
+        description: `Route has been copied to your clipboard`,
+      });
+      
+      window.open(data.Link, "_blank")
+      navigator.clipboard.writeText(data.Link)
+    } catch (error) {
+      console.error('Error generating route:', error);
+      toast({
+        title: "Route generation failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setRouteLoading(false);
     }
   }
 
@@ -390,16 +455,35 @@ export function EmployeeDashboard() {
       </Dialog>
 
       {/* Route Dialog */}
-      <Dialog open={showRouteDialog} onOpenChange={setShowRouteDialog}>
+      <Dialog open={showRouteDialog} onOpenChange={(open) => {
+        if (!open) {
+          // Reset loading state when dialog closes
+          setRouteLoading(false);
+        }
+        setShowRouteDialog(open);
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Pickup Route</DialogTitle>
             <DialogDescription>Your optimized route for selected pickups</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {routeLoading && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Generating route...</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Please be patient. This may take up to 20-30 seconds. Please be patient.
+                </p>
+              </div>
+            )}
+              
             <div className="border rounded-md p-4 bg-muted/50">
               <p className="text-sm text-center">
-                In a real application, this would display a Google Maps route with all selected pickup locations.
+                Later on, we'll use the Google Maps API to create an Embed that displays the directions url, but there was no time :(
               </p>
               <div className="aspect-video bg-muted rounded-md mt-4 flex items-center justify-center">
                 <MapPin className="h-10 w-10 text-muted-foreground" />
@@ -426,10 +510,21 @@ export function EmployeeDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRouteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowRouteDialog(false)} disabled={routeLoading}>
               Close
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700">Start Navigation</Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700" 
+              disabled={routeLoading}
+              onClick={() => {
+                const selectedAddresses = submissions
+                  .filter(submission => selectedPickups.includes(submission.id))
+                  .map(submission => submission.address);
+                onList(selectedAddresses);
+              }}
+            >
+              {routeLoading ? "Processing..." : "Start Navigation"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
