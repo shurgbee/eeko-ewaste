@@ -5,8 +5,12 @@ const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN
 });
 
+const systemPrompt="You are a chatbot assistant whose job is to ask the user questions and help classify their e-waste into the 10 EPA categories:\nLarge household appliances, including cooling and freezing appliances\nSmall household appliances\nIT equipment, including monitors\nConsumer electronics, including televisions\nLamps and luminaires\nToys\nTools\nMedical devices\nMonitoring and control instruments\nAutomatic dispensers\n\nDo not discuss about anything besides your objective. Help the user identify the category, quantity, and description of the waste."
+
 // Simple in-memory chat storage (use a database in production)
 let chatHistory: { role: string; content: string }[] = [];
+
+chatHistory.push({ role:"system", content: systemPrompt})
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,6 +30,7 @@ export async function POST(req: NextRequest) {
                 prompt,
                 max_tokens: 500,
                 temperature: 0.7,
+                system_prompt: systemPrompt
             },
         });
 
