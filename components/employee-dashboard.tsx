@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { Calendar, MapPin, Package, Truck, User } from "lucide-react"
+import { Calendar, Copy, MapPin, Package, Truck, User } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { Skeleton } from "./ui/skeleton"
 
 type Item = {
   id: number
@@ -47,6 +48,8 @@ export function EmployeeDashboard() {
   const [showDetails, setShowDetails] = useState(false)
   const [selectedPickups, setSelectedPickups] = useState<number[]>([])
   const [showRouteDialog, setShowRouteDialog] = useState(false)
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeLink, setRouteLink] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubmissions()
@@ -80,6 +83,62 @@ export function EmployeeDashboard() {
       setSelectedPickups([...selectedPickups, id])
     }
   }
+
+
+  async function onList(addresses: string[]) {
+    try {
+      setRouteLoading(true);
+      setRouteLink(null); // Reset any previous link
+      
+      // Send addresses to API endpoint with longer timeout
+      const response = await fetch('/api/mapslist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addresses),
+      });
+
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate route');
+      }
+      
+      const data = await response.json();
+      
+      // Store the route link
+      setRouteLink(data.Link);
+      
+      // Show success message
+      toast({
+        title: "Route generated",
+        description: `Route has been generated successfully`,
+      });
+      
+      window.open(data.Link, "_blank");
+      navigator.clipboard.writeText(data.Link);
+    } catch (error) {
+      console.error('Error generating route:', error);
+      toast({
+        title: "Route generation failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setRouteLoading(false);
+    }
+  }
+  
+  const handleCopyLink = () => {
+    if (routeLink) {
+      navigator.clipboard.writeText(routeLink);
+      toast({
+        title: "Copied to clipboard",
+        description: "Route link has been copied to clipboard",
+      });
+    }
+  };
 
   const handleViewDetails = (pickup: Submission) => {
     setSelectedPickup(pickup)
@@ -390,16 +449,55 @@ export function EmployeeDashboard() {
       </Dialog>
 
       {/* Route Dialog */}
-      <Dialog open={showRouteDialog} onOpenChange={setShowRouteDialog}>
+      <Dialog open={showRouteDialog} onOpenChange={(open) => {
+        if (!open) {
+          // Reset states when dialog closes
+          setRouteLoading(false);
+          setRouteLink(null);
+        }
+        setShowRouteDialog(open);
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Pickup Route</DialogTitle>
             <DialogDescription>Your optimized route for selected pickups</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {routeLoading && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Generating route...</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <Skeleton className="w-full rounded-full h-2.5"></Skeleton>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Please be patient. This may take up to 20-30 seconds.
+                </p>
+              </div>
+            )}
+            
+            {routeLink && !routeLoading && (
+              <div className="border rounded-md p-4 bg-green-50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-green-800">Route generated successfully!</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-1"
+                  >
+                    <Copy className="h-3 w-3" /> 
+                    Copy Link
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground break-all">{routeLink}</p>
+              </div>
+            )}
+                
             <div className="border rounded-md p-4 bg-muted/50">
               <p className="text-sm text-center">
-                In a real application, this would display a Google Maps route with all selected pickup locations.
+                Later on, we'll use the Google Maps API to create an Embed that displays the directions url, but there was no time :(
               </p>
               <div className="aspect-video bg-muted rounded-md mt-4 flex items-center justify-center">
                 <MapPin className="h-10 w-10 text-muted-foreground" />
@@ -426,10 +524,21 @@ export function EmployeeDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRouteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowRouteDialog(false)} disabled={routeLoading}>
               Close
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700">Start Navigation</Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700" 
+              disabled={routeLoading}
+              onClick={() => {
+                const selectedAddresses = submissions
+                  .filter(submission => selectedPickups.includes(submission.id))
+                  .map(submission => submission.address);
+                onList(selectedAddresses);
+              }}
+            >
+              {routeLoading ? "Processing..." : routeLink ? "Regenerate Route" : "Start Navigation"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
