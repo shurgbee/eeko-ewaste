@@ -25,6 +25,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { ChatWithAI } from "@/components/chat-with-ai"
 import { useToast } from "@/hooks/use-toast"
+import { submit } from "@/app/pickupdata"
+import { error } from "console"
 
 const eWasteCategories = [
   "Large household appliances",
@@ -93,28 +95,15 @@ export function Submission() {
 
 
     try {
-      // Send data to API endpoint
-      const response = await fetch('/api/submissions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to submit form')
-      }
-
-      // Show success message
+      const response = await submit(data)
+      if (!response.success) {
+        throw new Error('Failed to submit form')
+      } else {
       toast({
         title: "Submission successful!",
         description: `Your e-waste pickup is scheduled for ${format(data.pickupDate, "PPP")}`,
       })
-      
-      // Optional: Reset form after successful submission
-      // form.reset()
+      }
     } catch (error) {
       console.error('Error submitting form:', error)
       toast({
