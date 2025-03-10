@@ -6,6 +6,7 @@ import { Bot, Send, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { chatbot } from "@/app/aichat"
 
 type Message = {
   role: "user" | "assistant"
@@ -32,16 +33,12 @@ export function ChatWithAI() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/aichat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: input }),
-      })
-      const data = await response.json()
-      const assistantMessage: Message = data.response
-      setMessages((prev) => [...prev, assistantMessage])
+      const data = await chatbot(input);
+      if(!data.error){
+        const assistantMessage: Message = data.response
+        setMessages((prev) => [...prev, assistantMessage])
+      }
+      throw Error(data.error)
     } catch (error) {
       console.error('Error fetching AI response:', error)
     } finally {

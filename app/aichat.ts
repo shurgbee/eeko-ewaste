@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+'use server'
 import Replicate from "replicate";
 
 const replicate = new Replicate({
@@ -12,10 +12,8 @@ let chatHistory: { role: string; content: string }[] = [];
 
 chatHistory.push({ role:"system", content: systemPrompt})
 
-export async function POST(req: NextRequest) {
+export async function chatbot(message: string) {
     try {
-        const { message } = await req.json();
-
         // Append the user message to the chat history
         chatHistory.push({ role: "user", content: message });
 
@@ -24,7 +22,6 @@ export async function POST(req: NextRequest) {
             chatHistory.map((msg) => `${msg.role}: ${msg.content}`).join("\n") +
             "\nassistant:";
 
-        // Call Replicate Llama 3 model
         const output: any = await replicate.run("meta/meta-llama-3-8b-instruct", {
             input: {
                 prompt,
@@ -45,8 +42,9 @@ export async function POST(req: NextRequest) {
             content: output,
         };
 
-        return NextResponse.json({ response: formattedResponse });
+        return { error: undefined, response: formattedResponse };
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.log(error)
+        return { error: error.message, response: undefined };
     }
 }

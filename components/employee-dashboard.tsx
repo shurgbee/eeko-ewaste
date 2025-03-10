@@ -19,6 +19,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "./ui/skeleton"
+import { getAddress } from "@/app/mapslist"
+import { hydrateDashboard } from "@/app/pickupdata"
 
 type Item = {
   id: number
@@ -58,12 +60,12 @@ export function EmployeeDashboard() {
   const fetchSubmissions = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/submissions/get')
-      if (!response.ok) {
+      const response = await hydrateDashboard();
+      if (!response.success) {
         throw new Error('Failed to fetch submissions')
       }
-      const data = await response.json()
-      setSubmissions(data.submissions)
+      const data: any = await response.data
+      setSubmissions(data)
     } catch (error) {
       console.error('Error fetching submissions:', error)
       toast({
@@ -91,21 +93,13 @@ export function EmployeeDashboard() {
       setRouteLink(null); // Reset any previous link
       
       // Send addresses to API endpoint with longer timeout
-      const response = await fetch('/api/mapslist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(addresses),
-      });
-
+      const response = await getAddress(addresses)
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate route');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to generate route');
       }
       
-      const data = await response.json();
+      const data = await response.data;
       
       // Store the route link
       setRouteLink(data.Link);
@@ -116,7 +110,6 @@ export function EmployeeDashboard() {
         description: `Route has been generated successfully`,
       });
       
-      window.open(data.Link, "_blank");
       navigator.clipboard.writeText(data.Link);
     } catch (error) {
       console.error('Error generating route:', error);
