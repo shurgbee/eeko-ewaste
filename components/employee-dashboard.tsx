@@ -19,7 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "./ui/skeleton"
-import { getAddress } from "@/app/mapslist"
+import { getAddress, getMapsEmbed } from "@/app/directions"
 import { hydrateDashboard } from "@/app/pickupdata"
 
 type Item = {
@@ -52,6 +52,7 @@ export function EmployeeDashboard() {
   const [showRouteDialog, setShowRouteDialog] = useState(false)
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeLink, setRouteLink] = useState<string | null>(null);
+  const [embed, setEmbed] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubmissions()
@@ -93,16 +94,11 @@ export function EmployeeDashboard() {
       setRouteLink(null); // Reset any previous link
       
       // Send addresses to API endpoint with longer timeout
-      const response = await getAddress(addresses)
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to generate route');
-      }
-      
-      const data = await response.data;
+      const data = await getAddress(addresses)
       
       // Store the route link
-      setRouteLink(data.Link);
+      setRouteLink(data.url);
+      setEmbed(await data.embed);
       
       // Show success message
       toast({
@@ -110,7 +106,7 @@ export function EmployeeDashboard() {
         description: `Route has been generated successfully`,
       });
       
-      navigator.clipboard.writeText(data.Link);
+      navigator.clipboard.writeText(data.url);
     } catch (error) {
       console.error('Error generating route:', error);
       toast({
@@ -489,11 +485,17 @@ export function EmployeeDashboard() {
             )}
                 
             <div className="border rounded-md p-4 bg-muted/50">
-              <p className="text-sm text-center">
-                Later on, we'll use the Google Maps API to create an Embed that displays the directions url, but there was no time :(
-              </p>
               <div className="aspect-video bg-muted rounded-md mt-4 flex items-center justify-center">
-                <MapPin className="h-10 w-10 text-muted-foreground" />
+                {embed && routeLink && !routeLoading ? 
+              <iframe
+                className="w-full h-full rounded"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={embed}
+                allowFullScreen>
+              </iframe>
+              :
+              <MapPin className="h-10 w-10 text-muted-foreground" />
+              }
               </div>
             </div>
 

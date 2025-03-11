@@ -83,7 +83,6 @@ export default function Home() {
               src="/landingImage.png" // Replace with your actual image path or use an external image
               alt="E-waste recycling"
               layout="fill"
-              objectFit="cover" 
             />
           </div>
         </div>
@@ -131,7 +130,6 @@ export default function Home() {
                 height={32}
                 width={32} // Replace with your actual image path or use an external image
                 alt="Our logo"
-                objectFit="cover"
               />
               <span className="text-lg font-bold">Eeko</span>
             </div>
